@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>준혁런</title>
+<title>run</title>
 <style>
 :root{--bg:#0d0f14;--panel:#171b24;--text:#f2f2f2;--muted:#9aa3b2;--accent:#ff5470;--accent2:#3ddc97;--warn:#ffcc00}
 *{box-sizing:border-box}
@@ -63,9 +63,7 @@ function saveDashScores(){
   try {
     localStorage.setItem('junhyukrun_best', String(dashBest));
     localStorage.setItem('junhyukrun_last', String(dashLastScore));
-  } catch(e) {
-    // 브라우저에서 저장을 허용하지 않아도 게임은 계속 진행된다.
-  }
+  } catch(e) {}
 }
 function updateDashScore(){
   document.getElementById('dashScoreUI').textContent = `점수 ${dashScore}`;
@@ -97,16 +95,23 @@ function dashJump(){
   if(dashPlayer.onGround){ dashPlayer.vy = -13.5; dashPlayer.onGround=false; }
 }
 
-
-// 시작 화면의 '준혁런' 제목을 마인크래프트 §k처럼 계속 난독화한다.
 (function(){
   const title = document.getElementById('titleScramble');
   if (!title) return;
 
   const original = Array.from('준혁런');
   const symbols = Array.from(
-    '۞۩⟁⌬⌘⟡⧖⧗⨳⫷⫸⸸※⁂✣✥✧✺✹✵☯♆♇⚝⚚⚕⚘⚜҉̸̷̶̴̵͟͞'
-  );
+  "۞ ۩ ⟁ ⌬ ⌘ ⌖ ⌗ ⌑ ⌭ ⌯ ⌰ ⟡ ⟢ ⟣ ⟠ ⧖ ⧗ ⧘ ⧙ ⧚ ⧛ " +
+  "𖤐 𖣔 𖠌 𖡼 𖢻 𖣘 𖥂 𖦹 𖧷 𖨆 𖩰 𖪷 𖫐 " +
+  "𐌀 𐌁 𐌂 𐌃 𐌄 𐌅 𐌆 𐰀 𐰁 𐰂 𐰃 𐰄 𐰅 " +
+  "ꙮ Ꙭ ꙭ ꙰ ꙳ ꙴ ꙵ Ѫ Ѭ Ѯ Ѱ Ѳ Ѵ Ѷ Ӝ Ӂ Ӭ Ӿ Ԅ Ԇ Ԉ " +
+  "⏣ ⏥ ⏦ ⏧ ⏢ ⏤ ⧊ ⧋ ⧌ ⧍ ⧎ ⧏ ⧐ " +
+  "☿ ♁ ♆ ♇ ⚶ ⚷ ⚸ ⚹ ⛤ ⛧ ⛥ ⛦ ⛨ ⛩ ☉ ☽ ☾ ☼ ☄ ⚝ " +
+  "◆ ◈ ◉ ◎ ◌ ◍ ◐ ◑ ◒ ◓ ◢ ◣ ◤ ◥ ◧ ◨ ◩ ◪ " +
+  "∅ ∆ ∇ ∞ ≈ ≠ ≡ ≢ ⊕ ⊗ ⊙ ⊘ ⊚ ⊛ ⊞ ⊟ ⊠ ⊡ " +
+  "⇌ ⇋ ⇄ ⇆ ⇇ ⇉ ⇊ ⇈ ↯ ↭ ↬ ↫ ↝ ↜ ⤊ ⤋ ⤶ ⤷ " +
+  "✣ ✥ ✧ ✺ ✹ ✵ ✶ ✷ ✸ ✻ ⁂ ⁑ ⁕ ※"
+  ).filter(char => char.trim() !== "");
 
   title.style.display = 'inline-block';
   title.style.minWidth = '3em';
@@ -143,7 +148,6 @@ document.getElementById('dashCanvas').addEventListener('pointerdown', (e)=>{
   dashJump();
 });
 function spawnDashObstacles(){
-  // 시작할 때 화면 오른쪽 바깥에 첫 장애물을 배치
   dashObstacles.push({x:900, y:326, w:32, h:34, passed:false});
 }
 function addDashObstacle(){
@@ -159,24 +163,20 @@ function dashLoop(){
   ctx.clearRect(0,0,cvs.width,cvs.height);
   ctx.fillStyle = '#080b12';
   ctx.fillRect(0,0,cvs.width,cvs.height);
-  // ground
   ctx.fillStyle = '#2a2f3d';
   ctx.fillRect(0,360,800,40);
   ctx.strokeStyle='#4a5060'; ctx.beginPath(); ctx.moveTo(0,360); ctx.lineTo(800,360); ctx.stroke();
 
-  // physics
   dashPlayer.vy += 0.75;
   dashPlayer.y += dashPlayer.vy;
   if(dashPlayer.y >= 316){ dashPlayer.y = 316; dashPlayer.vy = 0; dashPlayer.onGround = true; }
 
-  // 단색 사각형 플레이어
   ctx.fillStyle = '#e8edf5';
   ctx.fillRect(dashPlayer.x, dashPlayer.y, dashPlayer.w, dashPlayer.h);
 
   let hit = false;
   dashObstacles.forEach(ob=>{
     ob.x -= dashSpeed;
-    // 단색 삼각형 장애물
     ctx.fillStyle = '#ff5a5f';
     ctx.beginPath();
     ctx.moveTo(ob.x, ob.y+ob.h);
@@ -194,13 +194,11 @@ function dashLoop(){
       }
       updateDashScore();
     }
-    // collision (simple AABB against triangle bbox, slightly shrunk for fairness)
     const px1=dashPlayer.x+5, px2=dashPlayer.x+dashPlayer.w-5, py1=dashPlayer.y+5, py2=dashPlayer.y+dashPlayer.h-5;
     const ox1=ob.x+5, ox2=ob.x+ob.w-5, oy1=ob.y+6, oy2=ob.y+ob.h;
     if(px1<ox2 && px2>ox1 && py1<oy2 && py2>oy1){ hit = true; }
   });
 
-  // 장애물이 화면 밖으로 나가면 제거하고, 다음 장애물을 계속 추가한다.
   dashObstacles = dashObstacles.filter(ob => ob.x + ob.w > -10);
   if(dashObstacles.length && dashObstacles[dashObstacles.length - 1].x < 800){
     addDashObstacle();

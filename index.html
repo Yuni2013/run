@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>준혁런 - 분리 버전</title>
+<title>준혁런</title>
 <style>
 :root{--bg:#0d0f14;--panel:#171b24;--text:#f2f2f2;--muted:#9aa3b2;--accent:#ff5470;--accent2:#3ddc97;--warn:#ffcc00}
 *{box-sizing:border-box}
@@ -32,10 +32,6 @@ button.secondary{background:#444d5e}
     <div class="hud"><span>준혁런 · 무한 모드</span><span id="dashScoreUI">점수 0</span><span id="dashBestUI">최고 0</span></div>
     <canvas id="dashCanvas" width="800" height="400"></canvas>
     <p class="small">스페이스바 / 클릭 / 화면 터치로 점프!</p>
-  </div>
-  <div class="screen" id="screen-win">
-    <h2>🎉 준혁런 클리어!</h2><p id="winMsg">장애물 23개를 모두 넘었습니다.</p>
-    <button onclick="show('screen-start')">처음으로</button>
   </div>
   <div class="screen" id="screen-fail">
     <h2>게임 오버</h2><p id="failMsg">장애물에 부딪혔습니다.</p>

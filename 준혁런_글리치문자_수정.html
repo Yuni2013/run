@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>준혁런</title>
+<style>
+:root{--bg:#0d0f14;--panel:#171b24;--text:#f2f2f2;--muted:#9aa3b2;--accent:#ff5470;--accent2:#3ddc97;--warn:#ffcc00}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,'Malgun Gothic',sans-serif;min-height:100vh;overflow:hidden}
+.screen{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;padding:70px 20px 20px}
+.screen.active{display:flex}
+button{font-size:1.05rem;font-weight:700;background:var(--accent);color:white;border:0;border-radius:12px;padding:13px 22px;cursor:pointer;margin:8px}
+button.secondary{background:#444d5e}
+.hud{position:absolute;top:14px;left:14px;right:14px;display:flex;justify-content:space-between;font-weight:700;z-index:5;gap:8px}
+.hud span{background:var(--panel);padding:7px 12px;border-radius:10px}
+#dashCanvas{background-color:#080b12;background-repeat:no-repeat;background-size:cover;border-radius:16px;display:block;touch-action:manipulation;width:min(800px,92vw);height:auto;max-height:62vh}
+.small{font-size:.85rem;color:var(--muted);text-align:center}
+@keyframes jumpin{from{transform:scale(.2) rotate(-15deg);opacity:0}to{transform:scale(1);opacity:1}}
+@media(max-width:520px){.screen{padding-left:8px;padding-right:8px}.hud{font-size:.85rem}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="screen active" id="screen-start">
+    <h1 id="titleScramble" aria-label="준혁런">준혁런</h1>
+    <p>끝없이 등장하는 장애물을 피하고 최고 점수에 도전하세요!</p>
+    <button onclick="startDash()">게임 시작</button>
+    <p class="small">스페이스바 / 클릭 / 화면 터치로 점프</p>
+  </div>
+  <div class="screen" id="screen-dash">
+    <div class="hud"><span id="hudGlitchTitle" aria-label="준혁런 - 무한 모드">۞⟁⌬</span><span id="dashScoreUI">점수 0</span><span id="dashBestUI">최고 0</span></div>
+    <canvas id="dashCanvas" width="800" height="400"></canvas>
+    <p class="small">스페이스바 / 클릭 / 화면 터치로 점프!</p>
+  </div>
+  <div class="screen" id="screen-fail">
+    <h2>게임 오버</h2><p id="failMsg">장애물에 부딪혔습니다.</p>
+    <button onclick="startDash()">다시하기</button>
+  </div>
+</div>
+<script>
+let cleared = [];
+try{cleared=JSON.parse(localStorage.getItem('pikabu_cleared')||'[]')}catch(e){}
+function saveCleared(n){
+ if(!cleared.includes(n)) cleared.push(n);
+ try{localStorage.setItem('pikabu_cleared',JSON.stringify(cleared))}catch(e){}
+}
+function show(id){
+ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+ document.getElementById(id).classList.add('active');
+}
+function goLobby(){show('screen-start')}
+let dashCtx, dashAnim, dashPlayer, dashObstacles, dashSpeed, dashScore, dashRunning;
+let dashBest = 0;
+let dashLastScore = 0;
+try {
+  dashBest = Number(localStorage.getItem('junhyukrun_best') || 0);
+  dashLastScore = Number(localStorage.getItem('junhyukrun_last') || 0);
+  if (!Number.isFinite(dashBest) || dashBest < 0) dashBest = 0;
+  if (!Number.isFinite(dashLastScore) || dashLastScore < 0) dashLastScore = 0;
+} catch(e) {}
+function saveDashScores(){
+  try {
+    localStorage.setItem('junhyukrun_best', String(dashBest));
+    localStorage.setItem('junhyukrun_last', String(dashLastScore));
+  } catch(e) {
+    // 브라우저에서 저장을 허용하지 않아도 게임은 계속 진행된다.
+  }
+}
+function updateDashScore(){
+  document.getElementById('dashScoreUI').textContent = `점수 ${dashScore}`;
+  document.getElementById('dashBestUI').textContent = `최고 ${dashBest}`;
+}
+function startDash(){
+  stopDash();
+  show('screen-dash');
+  const cvs = document.getElementById('dashCanvas');
+  cvs.style.backgroundImage = 'none';
+  dashCtx = cvs.getContext('2d');
+  dashPlayer = {x:80, y:316, w:44, h:44, vy:0, onGround:true};
+  dashObstacles = [];
+  dashSpeed = 6.5;
+  dashScore = 0;
+  dashRunning = true;
+  updateDashScore();
+  document.getElementById('failMsg').textContent = '장애물에 부딪혔습니다.';
+  spawnDashObstacles();
+  dashLoop();
+}
+function stopDash(){
+  dashRunning = false;
+  if(dashAnim) cancelAnimationFrame(dashAnim);
+  dashAnim = null;
+}
+function dashKeyHandler(e){ if(e.code==='Space'){ e.preventDefault(); dashJump(); } }
+function dashJump(){
+  if(dashPlayer.onGround){ dashPlayer.vy = -13.5; dashPlayer.onGround=false; }
+}
+
+
+// 시작 화면의 '준혁런' 제목을 마인크래프트 §k처럼 계속 난독화한다.
+(function(){
+  const title = document.getElementById('titleScramble');
+  if (!title) return;
+
+  const original = Array.from('준혁런');
+  const symbols = Array.from(
+    '۞۩⟁⌬⌘⟡⧖⧗⨳⫷⫸⸸※⁂✣✥✧✺✹✵☯♆♇⚝⚚⚕⚘⚜҉̸̷̶̴̵͟͞'
+  );
+
+  title.style.display = 'inline-block';
+  title.style.minWidth = '3em';
+  title.style.textAlign = 'center';
+  title.style.fontFamily = 'monospace';
+
+  function scrambleTitle(){
+    title.textContent = original.map(() =>
+      symbols[Math.floor(Math.random() * symbols.length)]
+    ).join('');
+  }
+
+  scrambleTitle();
+  setInterval(scrambleTitle, 80);
+
+  const hudTitle = document.getElementById('hudGlitchTitle');
+  if (hudTitle) {
+    const glitchSymbols = Array.from(
+      '۞۩⟁⌬⌘⟡⧖⧗⨳⫷⫸⸸※⁂✣✥✧✺✹✵☯♆♇⚝⚚҉̸̷̶̴̵͟͞'
+    );
+    function scrambleHudTitle() {
+      hudTitle.textContent = Array.from({length: 3}, () =>
+        glitchSymbols[Math.floor(Math.random() * glitchSymbols.length)]
+      ).join('');
+    }
+    scrambleHudTitle();
+    setInterval(scrambleHudTitle, 95);
+  }
+})();
+
+window.addEventListener('keydown', dashKeyHandler);
+document.getElementById('dashCanvas').addEventListener('pointerdown', (e)=>{
+  e.preventDefault();
+  dashJump();
+});
+function spawnDashObstacles(){
+  // 시작할 때 화면 오른쪽 바깥에 첫 장애물을 배치
+  dashObstacles.push({x:900, y:326, w:32, h:34, passed:false});
+}
+function addDashObstacle(){
+  const last = dashObstacles[dashObstacles.length - 1];
+  const gap = 260 + Math.random() * 140;
+  dashObstacles.push({x:last.x + gap, y:326, w:32, h:34, passed:false});
+}
+
+function dashLoop(){
+  if(!dashRunning) return;
+  const cvs = document.getElementById('dashCanvas');
+  const ctx = dashCtx;
+  ctx.clearRect(0,0,cvs.width,cvs.height);
+  ctx.fillStyle = '#080b12';
+  ctx.fillRect(0,0,cvs.width,cvs.height);
+  // ground
+  ctx.fillStyle = '#2a2f3d';
+  ctx.fillRect(0,360,800,40);
+  ctx.strokeStyle='#4a5060'; ctx.beginPath(); ctx.moveTo(0,360); ctx.lineTo(800,360); ctx.stroke();
+
+  // physics
+  dashPlayer.vy += 0.75;
+  dashPlayer.y += dashPlayer.vy;
+  if(dashPlayer.y >= 316){ dashPlayer.y = 316; dashPlayer.vy = 0; dashPlayer.onGround = true; }
+
+  // 단색 사각형 플레이어
+  ctx.fillStyle = '#e8edf5';
+  ctx.fillRect(dashPlayer.x, dashPlayer.y, dashPlayer.w, dashPlayer.h);
+
+  let hit = false;
+  dashObstacles.forEach(ob=>{
+    ob.x -= dashSpeed;
+    // 단색 삼각형 장애물
+    ctx.fillStyle = '#ff5a5f';
+    ctx.beginPath();
+    ctx.moveTo(ob.x, ob.y+ob.h);
+    ctx.lineTo(ob.x+ob.w/2, ob.y);
+    ctx.lineTo(ob.x+ob.w, ob.y+ob.h);
+    ctx.closePath();
+    ctx.fill();
+
+    if(!ob.passed && ob.x + ob.w < dashPlayer.x){
+      ob.passed = true;
+      dashScore += 1;
+      if(dashScore > dashBest){
+        dashBest = dashScore;
+        saveDashScores();
+      }
+      updateDashScore();
+    }
+    // collision (simple AABB against triangle bbox, slightly shrunk for fairness)
+    const px1=dashPlayer.x+5, px2=dashPlayer.x+dashPlayer.w-5, py1=dashPlayer.y+5, py2=dashPlayer.y+dashPlayer.h-5;
+    const ox1=ob.x+5, ox2=ob.x+ob.w-5, oy1=ob.y+6, oy2=ob.y+ob.h;
+    if(px1<ox2 && px2>ox1 && py1<oy2 && py2>oy1){ hit = true; }
+  });
+
+  // 장애물이 화면 밖으로 나가면 제거하고, 다음 장애물을 계속 추가한다.
+  dashObstacles = dashObstacles.filter(ob => ob.x + ob.w > -10);
+  if(dashObstacles.length && dashObstacles[dashObstacles.length - 1].x < 800){
+    addDashObstacle();
+  }
+
+  if(hit){
+    stopDash();
+    dashLastScore = dashScore;
+    if(dashScore > dashBest) dashBest = dashScore;
+    saveDashScores();
+    updateDashScore();
+    document.getElementById('failMsg').textContent = `이번 점수: ${dashLastScore}점 · 최고 기록: ${dashBest}점`;
+    show('screen-fail');
+    return;
+  }
+
+  dashAnim = requestAnimationFrame(dashLoop);
+}
+</script>
+</body>
+</html>
